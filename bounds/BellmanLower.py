@@ -1,5 +1,5 @@
 import numpy as np
-from BellmanUtils import OptimizationUtils as OU
+from utils.BellmanUtils import OptimizationUtils as OU
 
 
 class LowwerBoundBellmanFunction:

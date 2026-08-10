@@ -1,6 +1,6 @@
 import numpy as np
-from BellmanLower import LowwerBoundBellmanFunction as LB
-from BellmanUtils import OptimizationUtils as OU
+from bounds.BellmanLower import LowwerBoundBellmanFunction as LB
+from utils.BellmanUtils import OptimizationUtils as OU
 
 
 class UpperBoundBellmanFunction:
@@ -11,15 +11,10 @@ class UpperBoundBellmanFunction:
     """
     
     def scaledBellman1D(self, x, y, a):
-        """
-        Scaled 1D Bellman function for control in [-a,a].
-        """
         return LB().pureBellman1D(a * x, y) / (a ** 3)
 
+
     def upperBoundBellman2DAngleRectangle(self, x, y, phi, xi):
-        """
-        Upper bound for specific rectangle orientation (phi) and aspect ratio (xi).
-        """
         assert 0 <= xi <= np.pi/2
         x_rotated, y_rotated = OU.rotate_vectors(x, y, phi)
         
@@ -73,10 +68,6 @@ class UpperBoundBellmanFunction:
 
 
     def upperBoundBellman2DRotatedRectangle(self, x, y, phi):
-        """
-        Best rectangle upper bound for fixed orientation phi.
-        Finds optimal aspect ratio xi.
-        """
         x_rotated, y_rotated = OU.rotate_vectors(x, y, phi)
         X, F, h = self._adaptive_grid_search_xi(x_rotated, y_rotated)
         
@@ -101,10 +92,6 @@ class UpperBoundBellmanFunction:
 
 
     def upperBoundBellman2DRectangle(self, x, y):
-        """
-        Optimal rectangle upper bound over all orientations.
-        Finds best phi, then best xi for that phi.
-        """
         tol = 1e-13
         nxy = np.linalg.norm([x, y])
         

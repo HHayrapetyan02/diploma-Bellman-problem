@@ -1,15 +1,15 @@
 import numpy as np
 
 
+BETTA = 0.444623560185937                   # 36*β^4 + 3*β^2 - 2 = 0
+GAMMA = 6.753024861778741e-02               # γ = (-β^2 + 2β - 2/3) / (10*(1-2β)^(3/2))               
+GR = (np.sqrt(5) - 1) / 2
+GRP = 1 - GR
+
 class OptimizationUtils:
     """
     Helper functions for optimizing lower and upper bounds
     """
-    
-    BETTA = 0.444623560185937                   # 36*β^4 + 3*β^2 - 2 = 0
-    GAMMA = 6.753024861778741e-02               # γ = (-β^2 + 2β - 2/3) / (10*(1-2β)^(3/2))               
-    GR = (np.sqrt(5) - 1) / 2
-    GRP = 1 - GR
     
     @staticmethod
     def rotate_matrix(phi):
@@ -41,12 +41,9 @@ class OptimizationUtils:
 
     @staticmethod
     def golden_section_search(func, a, b, tol=1e-10, maximize=False):
-        gr = OptimizationUtils.GR
-        grp = OptimizationUtils.GRP
-        
         left, right = a, b
-        x1 = left * gr + right * grp
-        x2 = right * gr + left * grp
+        x1 = left * GR + right * GRP
+        x2 = right * GR + left * GRP
         
         f1, f2 = func(x1), func(x2)
         f_left, f_right = func(left), func(right)
@@ -64,26 +61,26 @@ class OptimizationUtils:
                     # Shift left boundary
                     left, f_left = x1, f1
                     x1, f1 = x2, f2
-                    x2 = right * gr + left * grp
+                    x2 = right * GR + left * GRP
                     f2 = func(x2)
                 else:
                     # Shift right boundary
                     right, f_right = x2, f2
                     x2, f2 = x1, f1
-                    x1 = left * gr + right * grp
+                    x1 = left * GR + right * GRP
                     f1 = func(x1)
             else:
                 if f1 > f2:
                     # Shift left boundary
                     left, f_left = x1, f1
                     x1, f1 = x2, f2
-                    x2 = right * gr + left * grp
+                    x2 = right * GR + left * GRP
                     f2 = func(x2)
                 else:
                     # Shift right boundary
                     right, f_right = x2, f2
                     x2, f2 = x1, f1
-                    x1 = left * gr + right * grp
+                    x1 = left * GR + right * GRP
                     f1 = func(x1)
         
         if maximize:

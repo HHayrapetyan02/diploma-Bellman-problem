@@ -1,4 +1,4 @@
-from pureBellman1D import pureBellman1D
+from core.pureBellman1D import pureBellman1D
 
 def scaledBellman1D(x, y, a):
     """
