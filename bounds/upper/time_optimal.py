@@ -47,11 +47,17 @@ class TimeOptimalBound:
 
         return nx, xy, ny
 
-    def _residual(self, params, p_target, q_target):
-        tau_bar, tau0 = params
-        tau_bar = np.clip(tau_bar, -0.999999, 0.999999)
+    @staticmethod
+    def _decode(s):
+        s1, s2 = float(s[0]), float(s[1])
+        tau_bar = np.tanh(s1)
+        tau0 = tau_bar - np.exp(np.clip(s2, -30.0, 30.0))
+        return tau_bar, tau0
+
+    def _residual(self, s, p_target, q_target):
+        tau_bar, tau0 = self._decode(s)
         nx, xy, ny = self._gram_terms(tau0, tau_bar)
-        if ny <= 1e-14:
+        if ny <= 1e-14 or not np.isfinite(nx) or not np.isfinite(xy):
             return [1e6, 1e6]
         return [nx / ny**2 - p_target, xy / ny**1.5 - q_target]
 
@@ -59,21 +65,32 @@ class TimeOptimalBound:
         p_t, q_t = to_pq(np.asarray(x, float), np.asarray(y, float))
 
         best = None
-        for tb0 in (0.9, 0.5, 0.0, -0.5, -0.9):
-            for t00 in (-3.0, -2.0, -1.0, -0.5, 0.5):
+        for tb0 in (0.99, 0.9, 0.5, 0.0, -0.5, -0.9):
+            for gap0 in (0.1, 0.5, 1.0, 2.0, 3.0):
+                s0 = [np.arctanh(tb0), np.log(gap0)]
                 sol, info, ier, _ = fsolve(
-                    self._residual, [tb0, t00], args=(p_t, q_t),
+                    self._residual, s0, args=(p_t, q_t),
                     full_output=True, xtol=self.tol)
-                if ier == 1:
-                    r = np.linalg.norm(self._residual(sol, p_t, q_t))
-                    if best is None or r < best[1]:
-                        best = (sol, r)
-        if best is None or best[1] > 1e-6:
+                if ier != 1:
+                    continue
+                r = float(np.linalg.norm(self._residual(sol, p_t, q_t)))
+                if r > 1e-8:
+                    continue
+                tau_bar, tau0 = self._decode(sol)
+                if not (abs(tau_bar) < 1.0 and tau0 < tau_bar):
+                    continue
+                if best is None or r < best[1]:
+                    best = ((tau_bar, tau0), r)
+        if best is None:
             return None
 
         tau_bar, tau0 = best[0]
         _, _, ny = self._gram_terms(tau0, tau_bar)
+        if ny <= 0.0:
+            return None
         alpha = np.sqrt(ny) / np.linalg.norm(y)
+        if not np.isfinite(alpha) or alpha <= 0.0:
+            return None
         return float(alpha), float(tau_bar), float(tau0)
 
     @staticmethod
@@ -98,6 +115,9 @@ class TimeOptimalBound:
 
         alpha, tau_bar, tau0 = fit
         cost = self._objective(tau0, tau_bar) / alpha**5
+        if not np.isfinite(cost) or cost < 0.0:
+            return (None, -np.inf) if return_arg else -np.inf
+
         val = -float(cost)
         return ((alpha, tau_bar, tau0), val) if return_arg else val
     
