@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.integrate import solve_ivp
-from scipy.optimize import brentq, minimize_scalar
+from scipy.optimize import minimize_scalar
 
 from bounds.common import degenerate_case
 from utils.constants import Constants as Const
@@ -8,40 +8,11 @@ from utils.geometry import to_pq
 
 
 class SelfSimilarControlBound:
-    """Граница через автомодельное семейство управлений.
-
-    Рассматривается однопараметрическое семейство допустимых управлений
-
-        u(t) = (cos(varphi(t)), sin(varphi(t))),
-        varphi(t) = sigma * sqrt(5) * log(T - t) + c,
-
-    воспроизводящее форму управления на известных автомодельных
-    траекториях задачи. Любое допустимое управление даёт верхнюю оценку
-    стоимости, то есть нижнюю оценку для omega. Достоинство семейства
-    в том, что на самих автомодельных траекториях оценка обращается
-    в точное значение omega = -T^5/540, тогда как прямоугольные оценки
-    именно там наименее точны. Тем самым метод исправляет ту область
-    фазового пространства, где геометрические границы наиболее грубы.
-
-    Параметры sigma и c подбираются так, чтобы траектория, проинтегрированная
-    назад по времени из нуля, прошла через заданную начальную точку,
-    после чего значение функционала максимизируется по остаточной свободе.
-    """
-
     def __init__(self, rtol=1e-10, atol=1e-12):
-        """
-        Args:
-            rtol, atol: точности интегрирования системы.
-        """
         self.rtol = rtol
         self.atol = atol
 
     def _backward_trajectory(self, T, c, sigma, n_eval=400):
-        """Интегрирование системы назад по времени из начала координат.
-
-        Состояние дополнено накопленным функционалом, что позволяет
-        получить стоимость одновременно с траекторией.
-        """
         def rhs(t, z):
             tau = max(T - t, 1e-14)
             phi = sigma * Const.SQRT5 * np.log(tau) + c
@@ -55,7 +26,6 @@ class SelfSimilarControlBound:
         return sol
 
     def _invariants_at(self, T, c, sigma):
-        """Инварианты (p, q) вдоль обратной траектории."""
         sol = self._backward_trajectory(T, c, sigma)
         pq = []
         for k in range(sol.y.shape[1]):
@@ -67,12 +37,6 @@ class SelfSimilarControlBound:
         return sol, np.array(pq)
 
     def value(self, x, y, T, c, sigma):
-        """Стоимость семейства при данных параметрах и её согласование с (x, y).
-
-        Траектория масштабируется фуллеровской симметрией так, чтобы
-        совпасть по норме y с заданной точкой; невязка по инвариантам
-        штрафуется обращением значения в минус бесконечность.
-        """
         sol, pq = self._invariants_at(T, c, sigma)
         p_t, q_t = to_pq(np.asarray(x, float), np.asarray(y, float))
 
@@ -91,12 +55,6 @@ class SelfSimilarControlBound:
         return -float(sol.y[4, k]) * lam**5
 
     def upper_bound_self_similar(self, x, y, T=1.0, n_c=48, return_arg=False):
-        """Максимизация значения по параметрам семейства.
-
-        Параметр sigma принимает лишь два значения, определяющих
-        направление закрутки, и перебирается явно. Параметр T фиксируется
-        за счёт однородности, а сдвиг фазы c оптимизируется на периоде.
-        """
         deg = degenerate_case(x, y)
         if deg is not None:
             return (0.0, deg) if return_arg else deg

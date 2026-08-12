@@ -4,13 +4,6 @@ from utils.constants import Constants as Const
 
 
 def pure_bellman_1d(x, y):
-    """Точная функция Беллмана одномерной задачи Фуллера, u in [-1, 1].
-
-    Возвращает omega = -J*, то есть неположительную величину.
-    Обе ветви формулы объединены знаком s: s = +1 при x >= -beta*y*|y|,
-    иначе s = -1. Подкоренное выражение на выбранной ветви не меньше
-    y^2 * (1 - 2*beta) > 0, клиппинг защищает от ошибок округления.
-    """
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
 
@@ -23,21 +16,11 @@ def pure_bellman_1d(x, y):
 
 
 def scaled_bellman_1d(x, y, a):
-    """Функция Беллмана одномерной задачи для управления u in [-a, a].
-
-    Замена времени и координат даёт omega_a(x, y) = omega(a*x, y) / a^3.
-    Эквивалентная форма a^2 * omega(x/a, y/a) годится как независимая проверка.
-    """
     a = np.asarray(a, dtype=float)
     return pure_bellman_1d(a * x, y) / a**3
 
 
 def degenerate_case(x, y):
-    """Обработка вырожденных конфигураций, общая для всех оценок.
-
-    Возвращает точное значение omega, если пара (x, y) вырождена,
-    и None иначе. Все проверки относительные, так как задача однородна.
-    """
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
 

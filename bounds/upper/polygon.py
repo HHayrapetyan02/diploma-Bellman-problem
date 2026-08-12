@@ -8,27 +8,7 @@ from utils.utils import OptimizationUtils as OU
 
 
 class PolygonBound:
-    """Граница через вписанный правильный многоугольник.
-
-    Правильный n-угольник, вписанный в единичный круг, содержится в D,
-    поэтому даёт границу того же типа, что и прямоугольник, но более тугую:
-    прямоугольник есть частный случай n = 4, а при росте n многоугольник
-    исчерпывает круг и оценка сходится к точному значению.
-
-    Расщепление на независимые одномерные задачи, доступное для
-    прямоугольника, для общего многоугольника отсутствует, поскольку
-    стороны не выравнены с осями попарно ортогонально. Поэтому значение
-    вычисляется численно на факторе по фуллеровской симметрии, а по углу
-    поворота проводится оптимизация с периодом 2*pi/n. Результат всегда
-    берётся не хуже прямоугольного, что гарантирует монотонное улучшение.
-    """
-
     def __init__(self, n=6, solver_kwargs=None):
-        """
-        Args:
-            n: число вершин многоугольника, чётное для центральной симметрии.
-            solver_kwargs: параметры численного решателя.
-        """
         if n % 2 != 0:
             raise ValueError(f"n must be even for central symmetry, got {n}")
         self.n = n
@@ -36,7 +16,6 @@ class PolygonBound:
         self._cache = {}
 
     def _solution(self, theta):
-        """Кэшированное численное решение для ориентации theta."""
         key = round(theta % (2 * np.pi / self.n), 9)
         if key not in self._cache:
             body = Polygon.regular_inscribed(self.n, key)
@@ -45,7 +24,6 @@ class PolygonBound:
         return self._cache[key]
 
     def value_at_angle(self, x, y, theta):
-        """Значение границы при фиксированной ориентации многоугольника."""
         sol = self._solution(theta)
         r = float(np.sqrt(np.linalg.norm(y)))
         a = float(np.arctan2(x[1], x[0]))
@@ -54,17 +32,6 @@ class PolygonBound:
         return -float(sol["V"][i, j])
 
     def upper_bound_polygon(self, x, y, n=None, n_points=24, return_arg=False):
-        """Верхняя оценка через вписанный правильный n-угольник.
-
-        Args:
-            x, y: начальные данные задачи.
-            n: число вершин; при None используется значение из конструктора.
-            n_points: число узлов сетки при оптимизации по углу поворота.
-            return_arg: возвращать ли вместе со значением оптимальный угол.
-
-        Returns:
-            Значение границы либо пара (угол, значение).
-        """
         if n is not None and n != self.n:
             self.n = n
             self._cache.clear()

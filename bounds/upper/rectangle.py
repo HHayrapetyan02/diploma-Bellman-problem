@@ -6,27 +6,11 @@ from utils.utils import OptimizationUtils as OU
 
 
 class UpperBoundBellmanFunction:
-    """Граница через вписанный прямоугольник.
-
-    Прямоугольник R(phi, cos xi, sin xi) с полуосями, лежащими на единичной
-    окружности, вписан в диск D. Меньше допустимых управлений означает
-    большую стоимость, поэтому omega_rect <= omega_2D. Максимизация по
-    ориентации phi и соотношению сторон xi даёт самую тугую границу
-    этого семейства. Для прямоугольника задача расщепляется на две
-    независимые одномерные задачи, что даёт замкнутую форму.
-    """
 
     def scaledBellman1D(self, x, y, a):
-        """Одномерная функция Беллмана для управления u in [-a, a]."""
         return float(scaled_bellman_1d(x, y, a))
 
     def upperBoundBellman2DAngleRectangle(self, x, y, phi, xi):
-        """Значение для прямоугольника с ориентацией phi и параметром xi.
-
-        Полуоси равны cos(xi) и sin(xi). При вырождении одной из полуосей
-        движение вдоль соответствующей оси невозможно, и значение равно
-        минус бесконечности, если начальные данные этой оси ненулевые.
-        """
         if not (0 <= xi <= np.pi / 2):
             raise ValueError(f"xi must be in [0, pi/2], got {xi}")
 
@@ -50,14 +34,7 @@ class UpperBoundBellmanFunction:
         return (self.scaledBellman1D(x_rotated[0], y_rotated[0], a)
                 + self.scaledBellman1D(x_rotated[1], y_rotated[1], b))
 
-    def _adaptive_grid_search_xi(self, x_rotated, y_rotated, n_points=64,
-                                 max_refines=20):
-        """Локализация внутреннего максимума по xi измельчением сетки.
-
-        Концы отрезка исключаются, так как на них значение обращается
-        в минус бесконечность. Сетка измельчается, пока максимум не
-        окажется строго внутри, что гарантирует корректность скобки.
-        """
+    def _adaptive_grid_search_xi(self, x_rotated, y_rotated, n_points=64, max_refines=20):
         n = n_points
         for _ in range(max_refines):
             X = np.linspace(0, np.pi / 2, n + 1)[1:-1]
@@ -72,7 +49,6 @@ class UpperBoundBellmanFunction:
             f"xi maximum not bracketed for x={x_rotated}, y={y_rotated}")
 
     def upperBoundBellman2DRotatedRectangle(self, x, y, phi, n_points=64):
-        """Наилучшее соотношение сторон при фиксированной ориентации phi."""
         x_rotated, y_rotated = OU.rotate_vectors(x, y, phi)
         scale = float(np.hypot(np.linalg.norm(x_rotated),
                                np.linalg.norm(y_rotated)))
@@ -102,7 +78,6 @@ class UpperBoundBellmanFunction:
         return max(f_fine, float(F[maxind]))
 
     def upperBoundBellman2DRectangle(self, x, y, n_points=64, return_arg=False):
-        """Оптимизация по ориентации прямоугольника."""
         x = np.asarray(x, dtype=float)
         y = np.asarray(y, dtype=float)
 

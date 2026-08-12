@@ -2,25 +2,14 @@ import numpy as np
 
 
 class ConvexBody:
-    """Выпуклое центрально-симметричное множество допустимых управлений.
-
-    Задаётся опорной функцией h(e) = max_{u in U} <u, e>. Для задач
-    оптимального управления с гамильтонианом max_u <psi, u> опорная
-    функция -- единственное, что требуется от множества U.
-    """
-
     def support(self, e):
-        """Опорная функция в направлениях e формы (..., 2)."""
         raise NotImplementedError
 
     def argmax(self, e):
-        """Точка U, реализующая максимум <u, e>."""
         raise NotImplementedError
 
 
 class Disc(ConvexBody):
-    """Единичный круг D = {||u|| <= 1}."""
-
     def support(self, e):
         return np.linalg.norm(e, axis=-1)
 
@@ -30,23 +19,11 @@ class Disc(ConvexBody):
 
 
 class Polygon(ConvexBody):
-    """Выпуклый центрально-симметричный многоугольник с вершинами verts.
-
-    Опорная функция вычисляется как максимум скалярных произведений
-    по всем вершинам: h(e) = max_k <v_k, e>.
-    """
-
     def __init__(self, verts):
         self.verts = np.asarray(verts, dtype=float)
 
     @classmethod
     def regular_inscribed(cls, n, theta=0.0):
-        """Правильный n-угольник, вписанный в единичный круг.
-
-        Args:
-            n: число вершин, чётное для центральной симметрии.
-            theta: угол поворота.
-        """
         if n % 2 != 0:
             raise ValueError(f"n must be even for central symmetry, got {n}")
         ang = theta + 2.0 * np.pi * np.arange(n) / n
@@ -54,11 +31,6 @@ class Polygon(ConvexBody):
 
     @classmethod
     def regular_circumscribed(cls, n, theta=0.0):
-        """Правильный n-угольник, описанный вокруг единичного круга.
-
-        Радиус описанной окружности 1/cos(pi/n) обеспечивает касание
-        всех сторон единичной окружности.
-        """
         if n % 2 != 0:
             raise ValueError(f"n must be even for central symmetry, got {n}")
         r = 1.0 / np.cos(np.pi / n)
@@ -67,7 +39,6 @@ class Polygon(ConvexBody):
 
     @classmethod
     def rectangle(cls, a, b, theta=0.0):
-        """Прямоугольник с полуосями a, b, повёрнутый на theta."""
         v = np.array([[a, b], [-a, b], [-a, -b], [a, -b]], dtype=float)
         c, s = np.cos(theta), np.sin(theta)
         rot = np.array([[c, -s], [s, c]])
@@ -75,11 +46,6 @@ class Polygon(ConvexBody):
 
     @classmethod
     def octagon_circumscribed(cls, theta=0.0):
-        """Октагон как пересечение квадрата и его поворота на pi/4.
-
-        Содержит единичный круг и содержится в квадрате [-1,1]^2,
-        поэтому даёт более тугую верхнюю границу для omega, чем квадрат.
-        """
         return cls.regular_circumscribed(8, theta)
 
     def support(self, e):
@@ -93,19 +59,13 @@ class Polygon(ConvexBody):
 
 
 def gramian(x, y):
-    """Грамиан пары векторов: [[<x,x>, <x,y>], [<x,y>, <y,y>]]."""
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
     return np.array([[x @ x, x @ y], [x @ y, y @ y]])
 
 
 def to_pq(x, y):
-    """Инвариантные координаты p = ||x||^2/||y||^4, q = <x,y>/||y||^3.
-
-    Из симметрий omega(lam^2 x, lam y) = lam^5 omega(x, y) и
-    omega(Ox, Oy) = omega(x, y) следует, что omega выражается через
-    ||y||^5 и функцию от (p, q). Это сводит четырёхмерную задачу к двумерной.
-    """
+    """p = ||x||^2/||y||^4, q = <x,y>/||y||^3."""
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
     ny = np.linalg.norm(y)
@@ -115,11 +75,6 @@ def to_pq(x, y):
 
 
 def from_pq(p, q, ny=1.0):
-    """Восстановление представителя (x, y) по инвариантам (p, q).
-
-    Выбирается каноническое положение y вдоль первой оси; результат
-    определён с точностью до вращения, относительно которого задача инвариантна.
-    """
     if p * 1.0 < q * q:
         raise ValueError(f"infeasible invariants: p={p} < q^2={q * q}")
     y = np.array([ny, 0.0])

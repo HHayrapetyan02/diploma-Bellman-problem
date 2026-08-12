@@ -7,31 +7,8 @@ from utils.geometry import Disc
 
 
 class SelfSimilarHJBSolver:
-    """Численное решение задачи Беллмана на факторе по симметриям.
-
-    Задача min (1/2) int ||x||^2 dt при xdot = y, ydot = u in U
-    обладает фуллеровской симметрией omega(lam^2 x, lam y) = lam^5 omega(x, y).
-    Если U вращательно симметрично, добавляется и вращательная симметрия,
-    и задача сводится к двум переменным. Для многоугольного U вращательная
-    симметрия ослабляется до конечной группы C_n, и в фактор-пространстве
-    остаётся дополнительная угловая координата.
-
-    Решение ищется методом value iteration на полу-лагранжевой схеме:
-    состояние сносится вдоль динамики на шаг dt, значение интерполируется,
-    затем берётся минимум по управлениям из конечного набора образующих U.
-    """
-
     def __init__(self, body=None, n_r=48, n_ang=96, n_controls=64,
                  r_max=1.0, dt=2.0e-2):
-        """
-        Args:
-            body: множество управлений (объект ConvexBody).
-            n_r: число узлов по радиальной координате фактор-пространства.
-            n_ang: число узлов по угловой координате.
-            n_controls: число дискретных управлений на границе U.
-            r_max: максимальный радиус сетки.
-            dt: шаг интегрирования полу-лагранжевой схемы.
-        """
         self.body = body if body is not None else Disc()
         self.n_r = n_r
         self.n_ang = n_ang
@@ -42,21 +19,11 @@ class SelfSimilarHJBSolver:
         self.controls = self.body.argmax(dirs)
 
     def _state_grid(self):
-        """Сетка в координатах (r, phi) четырёхмерного пространства состояний.
-
-        Используется представление x = r^2 (cos a, sin a) * cos t,
-        y = r (cos b, sin b) * sin t, редуцированное по вращению.
-        """
         r = np.linspace(self.r_max / self.n_r, self.r_max, self.n_r)
         a = np.linspace(0.0, 2.0 * np.pi, self.n_ang, endpoint=False)
         return r, a
 
     def solve(self, n_iter=400, tol=1e-9):
-        """Value iteration до сходимости.
-
-        Returns:
-            Словарь с сеткой и значениями функции Беллмана на ней.
-        """
         r, a = self._state_grid()
         R, A = np.meshgrid(r, a, indexing="ij")
 
@@ -86,7 +53,6 @@ class SelfSimilarHJBSolver:
 
     @staticmethod
     def _interp(V, r, a, x1, x2, y1, y2):
-        """Билинейная интерполяция значения в снесённой точке."""
         rn = np.sqrt(np.hypot(y1, y2))
         an = np.arctan2(x2, x1)
 
@@ -103,28 +69,7 @@ class SelfSimilarHJBSolver:
 
 
 class HJBSubsolutionLP:
-    """Сертифицированная граница через субрешение уравнения Беллмана.
-
-    Функция W(x, y) = ||y||^5 f(p, q) с p = ||x||^2/||y||^4,
-    q = <x,y>/||y||^3 является субрешением, если
-
-        <W_x, y> - ||W_y|| + (1/2)||x||^2 >= 0,   W(0, 0) = 0.
-
-    Тогда W <= J* всюду, то есть -W даёт сертифицированную границу
-    для omega = -J*. Норма ||W_y|| нелинейна по W, но представима как
-    max по направлениям e единичной длины скалярного произведения
-    <W_y, e>. Замена максимума на конечный набор направлений даёт
-    линейную релаксацию в нужную сторону, и задача максимизации
-    интеграла от f сводится к задаче линейного программирования.
-    """
-
     def __init__(self, n_p=40, n_q=40, n_dirs=32, p_max=4.0, q_max=2.0):
-        """
-        Args:
-            n_p, n_q: размеры сетки по инвариантным координатам.
-            n_dirs: число направлений в линеаризации нормы.
-            p_max, q_max: границы расчётной области.
-        """
         self.n_p = n_p
         self.n_q = n_q
         self.n_dirs = n_dirs
@@ -132,7 +77,6 @@ class HJBSubsolutionLP:
         self.q_max = q_max
 
     def _grid(self):
-        """Допустимая часть сетки: по неравенству Коши-Буняковского p >= q^2."""
         p = np.linspace(1e-3, self.p_max, self.n_p)
         q = np.linspace(-self.q_max, self.q_max, self.n_q)
         P, Q = np.meshgrid(p, q, indexing="ij")
@@ -140,11 +84,6 @@ class HJBSubsolutionLP:
         return p, q, P, Q, mask
 
     def build_lp(self):
-        """Сборка матрицы ограничений и вектора цели задачи ЛП.
-
-        Возвращает разреженную матрицу A_ub, вектор b_ub и вектор c
-        такие, что задача имеет вид min c^T f при A_ub f <= b_ub.
-        """
         p, q, P, Q, mask = self._grid()
         idx = -np.ones(P.shape, dtype=int)
         idx[mask] = np.arange(int(mask.sum()))
@@ -204,11 +143,6 @@ class HJBSubsolutionLP:
         return A_ub, b_ub, c, idx, mask, p, q
 
     def solve(self, method="highs"):
-        """Решение задачи ЛП и возврат сертифицированного субрешения.
-
-        Returns:
-            Словарь с сеткой (p, q), значениями f и маской допустимости.
-        """
         from scipy.optimize import linprog
 
         A_ub, b_ub, c, idx, mask, p, q = self.build_lp()
@@ -223,7 +157,6 @@ class HJBSubsolutionLP:
 
     @staticmethod
     def evaluate(sol, x, y):
-        """Значение сертифицированной границы в точке (x, y)."""
         from utils.geometry import to_pq
 
         pp, qq = to_pq(x, y)

@@ -6,44 +6,11 @@ from utils.geometry import to_pq
 
 
 class TimeOptimalBound:
-    """Граница методом быстродействия.
-
-    Рассматривается вспомогательная задача минимизации времени
-
-        min (T - t0):  xdot = y, ydot = u in D, x(T) = y(T) = 0,
-
-    имеющая то же множество допустимых траекторий, что и исходная задача,
-    но другой функционал. Времяоптимальная траектория допустима для
-    исходной задачи, поэтому подстановка её в функционал даёт верхнюю
-    оценку стоимости, то есть нижнюю оценку для omega.
-
-    По принципу максимума сопряжённая переменная psi аффинна по времени,
-    оптимальное управление равно psi/||psi||, а условие трансверсальности
-    даёт ||psi(T)|| = 1. После масштабирования времени переменной
-    tau = alpha*t с beta = sqrt(1 - tau_bar^2) элементы грамиана и сам
-    функционал выражаются в замкнутой форме. Обращение зависимости
-    грамиана от параметров выполняется по паре инвариантов методом Ньютона.
-
-    Метод даёт существенно более точную оценку, чем прямоугольные:
-    относительный зазор составляет от долей процента до нескольких процентов
-    против примерно двадцати процентов у прямоугольного семейства.
-    """
-
     def __init__(self, tol=1e-12):
-        """
-        Args:
-            tol: точность решения нелинейной системы для параметров.
-        """
         self.tol = tol
 
     @staticmethod
     def _gram_terms(tau, tau_bar):
-        """Элементы грамиана, нормированные степенями alpha.
-
-        Реализуются выражения для alpha^4*||x||^2, alpha^3*<x,y> и
-        alpha^2*||y||^2, полученные интегрированием динамики с
-        оптимальным управлением.
-        """
         beta = np.sqrt(max(1.0 - tau_bar**2, 0.0))
         s = np.sqrt(tau**2 + beta**2)
         at = np.arctanh(np.clip(tau_bar, -1 + 1e-15, 1 - 1e-15))
@@ -81,7 +48,6 @@ class TimeOptimalBound:
         return nx, xy, ny
 
     def _residual(self, params, p_target, q_target):
-        """Невязка по инвариантам для метода Ньютона."""
         tau_bar, tau0 = params
         tau_bar = np.clip(tau_bar, -0.999999, 0.999999)
         nx, xy, ny = self._gram_terms(tau0, tau_bar)
@@ -90,7 +56,6 @@ class TimeOptimalBound:
         return [nx / ny**2 - p_target, xy / ny**1.5 - q_target]
 
     def _fit_params(self, x, y):
-        """Определение (alpha, tau_bar, tau0) по заданным начальным данным."""
         p_t, q_t = to_pq(np.asarray(x, float), np.asarray(y, float))
 
         best = None
@@ -113,11 +78,6 @@ class TimeOptimalBound:
 
     @staticmethod
     def _objective(tau0, tau_bar):
-        """Значение исходного функционала на времяоптимальной траектории.
-
-        Вычисляется как определённый интеграл от нормированного ||x||^2
-        по масштабированному времени между начальной и конечной точками.
-        """
         from scipy.integrate import quad
 
         def integrand(t):
@@ -128,15 +88,6 @@ class TimeOptimalBound:
         return 0.5 * val
 
     def upper_bound_time_optimal(self, x, y, return_arg=False):
-        """Верхняя оценка через подстановку времяоптимальной траектории.
-
-        Args:
-            x, y: начальные данные задачи.
-            return_arg: возвращать ли найденные параметры траектории.
-
-        Returns:
-            Значение границы либо пара (параметры, значение).
-        """
         deg = degenerate_case(x, y)
         if deg is not None:
             return (None, deg) if return_arg else deg
