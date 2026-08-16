@@ -4,10 +4,9 @@ from scipy.integrate import solve_ivp
 from bounds.common import pure_bellman_1d
 from utils.constants import Constants as Const
 
-SELF_SIMILAR_COST = 1.0 / 540.0    
+SELF_SIMILAR_COST = 1.0 / 540.0     
 
 
-# --------------------------------------------------------------------- 1D
 def cost_1d(X, Y):
     return -float(pure_bellman_1d(X, Y))
 
@@ -26,7 +25,6 @@ def embed(X, Y, theta):
     return np.concatenate([X * e, Y * e])
 
 
-# ------------------------------------------------------------- collinear
 def collinear_sample(X, Y, theta):
     e = np.array([np.cos(theta), np.sin(theta)])
     g_x, g_y = grad_cost_1d(X, Y)
@@ -42,13 +40,12 @@ def collinear_samples(scale=1.0, n_state=13, n_dir=32, span=2.0):
     return out
 
 
-# --------------------------------------------------------- self-similar
 def _self_similar_base(T=1.0, n=60):
     out = []
     for sigma in (1.0, -1.0):
         def rhs(t, z):
             tau = max(T - t, 1e-14)
-            phase = sigma * np.sqrt(5) * np.log(tau)
+            phase = sigma * Const.SQRT5 * np.log(tau)
             u = np.array([np.cos(phase), np.sin(phase)])
             return np.concatenate([z[2:4], u, [0.5 * (z[0:2] @ z[0:2])]])
 
@@ -111,12 +108,10 @@ def exact_cost_if_known(z, tol=1e-9):
         return cost_1d(nx, float(x @ y) / nx)
 
     G = np.array([[x @ x, x @ y], [x @ y, y @ y]])     
-    G_ref = np.array([[1 / 54, -1 / 27], [-1 / 27, 1 / 6]])
     for s in (1.0, -1.0):
         lam = np.sqrt(6.0) * float(np.linalg.norm(y))
         S = np.array([[lam**4 / 54, s * -lam**3 / 27],
                       [s * -lam**3 / 27, lam**2 / 6]])
         if np.max(np.abs(G - S)) <= tol * max(1.0, np.max(np.abs(S))):
             return SELF_SIMILAR_COST * lam**5
-    del G_ref
     return None

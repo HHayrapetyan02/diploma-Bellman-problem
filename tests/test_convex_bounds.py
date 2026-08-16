@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 
-from bounds.convex.affine import (AffineCutLowerBound, best_collinear_cut,
-                                  compute_lower_affine, cut_at_collinear,
-                                  verify_cuts)
+from bounds.convex.affine import (AffineCutLowerBound, AffineEnvelope,
+                                  best_collinear_cut, compute_lower_affine,
+                                  cut_at_collinear, verify_cuts)
 from bounds.convex.jensen import (JensenUpperBound, build_dictionary,
                                   compute_upper_affine)
 from bounds.convex.samples import (collinear_sample, cost_1d, exact_cost_if_known,
@@ -29,7 +29,6 @@ def cost_lower(z):
     return -LowerBoundBellmanFunction().lowerBoundBellman2D(z[:2], z[2:])
 
 
-# ---------------------------------------------------------------- basics
 def test_analytic_gradient_of_the_1d_cost():
     rng = np.random.default_rng(0)
     for _ in range(200):
@@ -58,7 +57,6 @@ def test_exact_values_are_recognised():
     assert exact_cost_if_known(np.array([1.0, 0.0, 0.0, 1.0])) is None
 
 
-# ------------------------------------------------------------------ cuts
 def test_tangent_cut_touches_its_own_point():
     z0, J0, g = collinear_sample(0.4, -0.9, 1.1)
     l = cut_at_collinear(0.4, -0.9, 1.1)
@@ -92,12 +90,11 @@ def test_affine_cut_bound_is_a_valid_lower_bound():
     assert 0.0 < v <= EXACT + 1e-12
 
 
-# --------------------------------------------------------------- Jensen
 def test_jensen_is_exact_on_the_self_similar_orbit():
     z = self_similar_state()
     v = JensenUpperBound(n_state=9, n_dir=24, n_rot=48, n_lambda=7).cost(z)
     assert v == pytest.approx(EXACT, rel=1e-6)
-    assert v <= cost_upper(z) + 1e-12          # beats the rectangle bound here
+    assert v <= cost_upper(z) + 1e-12          
 
 
 def test_jensen_is_an_upper_bound():
@@ -119,4 +116,53 @@ def test_compute_upper_affine_duality():
     if affine is not None:
         assert affine(z) == pytest.approx(value, rel=1e-6, abs=1e-9)
         assert np.max(np.array([affine(s) for s in S]) - f) <= 1e-8
-        
+
+
+def test_uncertified_lp_cuts_are_excluded_by_default():
+    import warnings
+    from bounds.convex.samples import collinear_sample
+
+    S, f = [], []
+    for prm in [(0.3, 0.5, 0.0), (-0.4, 1.1, 1.0), (0.8, -0.2, 2.2),
+                (0.1, 0.9, 3.0), (1.2, 0.4, 4.5)]:
+        z0, J0, _ = collinear_sample(*prm)
+        S.append(z0); f.append(J0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        lp_cuts = compute_lower_affine(np.array(S), np.array(f))
+    assert lp_cuts and all(not c.certified for c in lp_cuts)
+
+    z = self_similar_state()
+    safe = AffineCutLowerBound(cuts=lp_cuts, adaptive=False)
+    assert safe.cost(z) <= EXACT + 1e-12            
+    unsafe = AffineCutLowerBound(cuts=lp_cuts, adaptive=False,
+                                 require_certified=False)
+    assert unsafe.cost(z) > EXACT                   
+
+
+def test_affine_envelope_modes():
+    z = self_similar_state()
+    fns = [cut_at_collinear(0.3, 0.5, 0.0), cut_at_collinear(-0.4, 1.1, 1.0)]
+    assert AffineEnvelope(fns, mode="max")(z) == pytest.approx(
+        max(f(z) for f in fns))
+    assert AffineEnvelope(fns, mode="min")(z) == pytest.approx(
+        min(f(z) for f in fns))
+    with pytest.raises(ValueError):
+        AffineEnvelope(fns, mode="avg")
+
+
+def test_user_supplied_exact_points_are_used():
+    z = self_similar_state()
+    je = JensenUpperBound(n_state=5, n_dir=8, n_rot=12, n_lambda=3,
+                          use_self_similar=False, extra_atoms=[(z, EXACT)])
+    assert je.cost(z) == pytest.approx(EXACT, rel=1e-9)
+
+
+def test_jensen_dual_affine_is_not_marked_certified():
+    z = self_similar_state()
+    atoms = build_dictionary(z, n_state=5, n_dir=8, n_rot=12, n_lambda=3)
+    S = np.array([a for a, _ in atoms])
+    f = np.array([v for _, v in atoms])
+    _, _, affine = compute_upper_affine(S, f, z)
+    assert affine is not None and not affine.certified
+    assert np.max(np.array([affine(s) for s in S]) - f) <= 1e-8
