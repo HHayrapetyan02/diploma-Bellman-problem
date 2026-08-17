@@ -2,7 +2,6 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 from bounds.common import degenerate_case
-from utils.constants import Constants as Const
 from utils.geometry import to_pq
 
 P_SELF_SIMILAR = 2.0 / 3.0
@@ -18,7 +17,7 @@ class SelfSimilarControlBound:
     def _backward_trajectory(self, T=1.0, c=0.0, sigma=1.0, n_eval=400):
         def rhs(t, z):
             tau = max(T - t, 1e-14)
-            phi = sigma * Const.SQRT5 * np.log(tau) + c
+            phi = sigma * np.sqrt(5.0) * np.log(tau) + c
             u = np.array([np.cos(phi), np.sin(phi)])
             x = z[0:2]
             y = z[2:4]

@@ -45,7 +45,7 @@ def _self_similar_base(T=1.0, n=60):
     for sigma in (1.0, -1.0):
         def rhs(t, z):
             tau = max(T - t, 1e-14)
-            phase = sigma * Const.SQRT5 * np.log(tau)
+            phase = sigma * np.sqrt(5.0) * np.log(tau)
             u = np.array([np.cos(phase), np.sin(phase)])
             return np.concatenate([z[2:4], u, [0.5 * (z[0:2] @ z[0:2])]])
 

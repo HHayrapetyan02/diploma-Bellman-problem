@@ -34,7 +34,7 @@ class UpperBoundBellmanFunction:
         return (self.scaledBellman1D(x_rotated[0], y_rotated[0], a)
                 + self.scaledBellman1D(x_rotated[1], y_rotated[1], b))
 
-    def _adaptive_grid_search_xi(self, x_rotated, y_rotated, n_points=64, max_refines=20):
+    def _adaptive_grid_search_xi(self, x_rotated, y_rotated, n_points=64, max_refines=6):
         n = n_points
         for _ in range(max_refines):
             X = np.linspace(0, np.pi / 2, n + 1)[1:-1]
@@ -63,7 +63,11 @@ class UpperBoundBellmanFunction:
                 and abs(y_rotated[1]) < Const.EPS * scale):
             return float(pure_bellman_1d(x_rotated[0], y_rotated[0]))
 
-        X, F = self._adaptive_grid_search_xi(x_rotated, y_rotated, n_points)
+        try:
+            X, F = self._adaptive_grid_search_xi(x_rotated, y_rotated, n_points)
+        except RuntimeError:
+            return -np.inf
+        
         maxind = int(np.argmax(F))
         h_step = X[1] - X[0]
 
